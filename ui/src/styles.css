@@ -1,0 +1,208 @@
+:root {
+  color: #f3f0e8;
+  background:
+    radial-gradient(circle at top left, rgba(195, 83, 22, 0.35), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(16, 120, 129, 0.25), transparent 30%),
+    #131313;
+  font-family: "Segoe UI", "PingFang SC", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  border: none;
+  border-radius: 12px;
+  padding: 10px 16px;
+  background: #f2a65a;
+  color: #1c1a17;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: #2d2f33;
+  color: #f3f0e8;
+}
+
+button.linkish {
+  background: transparent;
+  padding: 0;
+  color: #f2a65a;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 320px minmax(480px, 1fr) 460px;
+  gap: 16px;
+  padding: 16px;
+  min-height: 100vh;
+}
+
+.panel {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  background: rgba(18, 18, 20, 0.88);
+  backdrop-filter: blur(16px);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.panel-header h1,
+.panel-header h2,
+.meta-block h2 {
+  margin: 0 0 6px;
+}
+
+.panel-header p {
+  margin: 0;
+  color: #a8a49b;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.field span {
+  color: #d8d1c4;
+  font-size: 13px;
+}
+
+.field input,
+.field select {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #17191d;
+  color: #f5f1e6;
+}
+
+.button-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.meta-block {
+  margin-top: 18px;
+}
+
+.repo-signal,
+.meta-card,
+.event-row,
+.session-list li {
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 12px;
+}
+
+.run-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.meta-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.event-log,
+.session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: auto;
+}
+
+.event-log {
+  max-height: 420px;
+}
+
+.event-row span,
+.event-row p,
+.session-list li span {
+  color: #c8c2b8;
+  margin: 0;
+}
+
+.event-row strong {
+  color: #f2a65a;
+}
+
+.session-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.session-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.status-pill {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.status-ok,
+.status-completed {
+  background: rgba(60, 173, 120, 0.2);
+  color: #73e2ab;
+}
+
+.status-running,
+.status-pending {
+  background: rgba(242, 166, 90, 0.2);
+  color: #ffd39b;
+}
+
+.status-failed {
+  background: rgba(218, 81, 81, 0.2);
+  color: #ff9a9a;
+}
+
+.terminal-host {
+  flex: 1;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #111111;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+@media (max-width: 1440px) {
+  .app-shell {
+    grid-template-columns: 280px minmax(420px, 1fr) 420px;
+  }
+}

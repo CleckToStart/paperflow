@@ -1,0 +1,8 @@
+.venv/
+node_modules/
+dist/
+state/
+output/
+artifacts/
+__pycache__/
+*.pyc

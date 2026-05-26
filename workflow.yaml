@@ -1,0 +1,96 @@
+input: input/paper.tex
+repo_root: .
+
+defaults:
+  continue_on_error: false
+  scope:
+    include:
+      - src/**
+      - paperflow/**
+      - configs/**
+      - scripts/**
+      - README*
+      - run.py
+    exclude:
+      - .git/**
+      - node_modules/**
+      - dist/**
+      - build/**
+      - output/**
+      - artifacts/**
+
+opencode:
+  command: opencode
+  args: []
+  prompt_via_stdin: true
+  timeout_seconds: 600
+  dir_mode: step_repo_root
+  session_mode: per_project
+  attach_url:
+  fork_on_run: false
+
+openai:
+  model: gpt-4.1
+  temperature: 0.2
+  system_prompt: 你是一名严格、保守、以证据为先的学术写作与审稿助手。
+
+steps:
+  - name: repo_map
+    type: code_evidence
+    runner: opencode
+    prompt: prompts/code/01_repo_map.md
+    output_json: output/code/01_repo_map.json
+    output_md: output/code/01_repo_map.md
+    include_main_input: false
+
+  - name: method_evidence
+    type: code_evidence
+    runner: opencode
+    prompt: prompts/code/02_method_evidence.md
+    inputs:
+      - output/code/01_repo_map.json
+    output_json: output/code/02_method_evidence.json
+    output_md: output/code/02_method_evidence.md
+    include_main_input: false
+
+  - name: experiment_evidence
+    type: code_evidence
+    runner: opencode
+    prompt: prompts/code/03_experiment_evidence.md
+    inputs:
+      - output/code/01_repo_map.json
+      - output/code/02_method_evidence.json
+    output_json: output/code/03_experiment_evidence.json
+    output_md: output/code/03_experiment_evidence.md
+    include_main_input: false
+
+  - name: writing_support
+    type: writing
+    runner: openai
+    prompt: prompts/writing/01_method_section.md
+    inputs:
+      - output/code/02_method_evidence.json
+      - output/code/03_experiment_evidence.json
+    output: output/writing/method_support.md
+
+  - name: logic_review
+    type: review
+    runner: openai
+    prompt: prompts/review/01_logic_review.md
+    inputs:
+      - output/code/02_method_evidence.json
+      - output/code/03_experiment_evidence.json
+      - output/writing/method_support.md
+    output: output/review/logic_review.md
+
+  - name: final_summary
+    type: summary
+    runner: openai
+    prompt: prompts/review/02_final_summary.md
+    inputs:
+      - output/code/01_repo_map.json
+      - output/code/02_method_evidence.json
+      - output/code/03_experiment_evidence.json
+      - output/writing/method_support.md
+      - output/review/logic_review.md
+    output: output/final_report.md
