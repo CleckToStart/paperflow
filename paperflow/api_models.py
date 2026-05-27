@@ -99,6 +99,43 @@ class TerminalSessionRecordResponse(BaseModel):
     attach_url: str | None = None
 
 
+class FileTreeNode(BaseModel):
+    name: str
+    path: str
+    kind: str
+    size: int = 0
+    children: list["FileTreeNode"] = Field(default_factory=list)
+
+
+class FileTreeResponse(BaseModel):
+    repo_root: str
+    root: FileTreeNode
+    truncated: bool
+    max_depth: int
+    max_nodes: int
+
+
+class FileReadResponse(BaseModel):
+    path: str
+    name: str
+    kind: str
+    size: int
+    readable: bool
+    reason: str
+    content: str = ""
+
+
+class FileInfoResponse(BaseModel):
+    repo_root: str
+    path: str
+    name: str
+    kind: str
+    size: int
+    is_directory: bool
+    is_file: bool
+    modified_at: float
+
+
 class OpenCodeCandidateResponse(BaseModel):
     path: str
     source: str

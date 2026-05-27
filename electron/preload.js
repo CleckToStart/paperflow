@@ -6,6 +6,9 @@ contextBridge.exposeInMainWorld("paperflow", {
   backendUrl: BACKEND_URL,
   health: () => ipcRenderer.invoke("paperflow:health"),
   listRepos: () => ipcRenderer.invoke("paperflow:listRepos"),
+  getFileTree: (repoRoot) => ipcRenderer.invoke("paperflow:getFileTree", repoRoot),
+  readFile: (payload) => ipcRenderer.invoke("paperflow:readFile", payload),
+  getFileInfo: (payload) => ipcRenderer.invoke("paperflow:getFileInfo", payload),
   getOpenCodeSettings: () => ipcRenderer.invoke("paperflow:getOpenCodeSettings"),
   updateOpenCodeSettings: (payload) => ipcRenderer.invoke("paperflow:updateOpenCodeSettings", payload),
   getProvidersSettings: () => ipcRenderer.invoke("paperflow:getProvidersSettings"),
@@ -21,6 +24,7 @@ contextBridge.exposeInMainWorld("paperflow", {
   resizeTerminal: (terminalSessionId, cols, rows) =>
     ipcRenderer.invoke("paperflow:resizeTerminal", terminalSessionId, cols, rows),
   openPath: (targetPath) => ipcRenderer.invoke("paperflow:openPath", targetPath),
+  showItemInFolder: (targetPath) => ipcRenderer.invoke("paperflow:showItemInFolder", targetPath),
   subscribeRunEvents(runId, onEvent) {
     const source = new EventSource(`${BACKEND_URL}/workflow-runs/${runId}/events`);
     const forward = (event) => onEvent(JSON.parse(event.data));

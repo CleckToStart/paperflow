@@ -10,9 +10,13 @@ from typing import AsyncIterator
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 
 from paperflow.api_models import (
+    FileInfoResponse,
+    FileReadResponse,
+    FileTreeResponse,
     HealthResponse,
     OpenCodeCandidateResponse,
     OpenCodeSettingsResponse,
@@ -36,6 +40,7 @@ from paperflow.api_models import (
     WorkflowRunSummary,
 )
 from paperflow.executor import WorkflowExecutor
+from paperflow.file_browser import FileBrowser
 from paperflow.models import TerminalSessionRecord, WorkflowRunEvent, WorkflowRunRecord, now_iso
 from paperflow.settings import OpenCodeLocator, ProviderConfig, SettingsManager
 from paperflow.state import RepoRegistry, SessionRegistry
@@ -202,7 +207,18 @@ executor = WorkflowExecutor(
     opencode_locator=opencode_locator,
 )
 run_manager = RunManager(root=ROOT, executor=executor)
+file_browser = FileBrowser()
 app = FastAPI(title="paperflow API", version="0.1.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+    ],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT"],
+    allow_headers=["*"],
+)
 
 
 def record_to_summary(record: WorkflowRunRecord) -> WorkflowRunSummary:
@@ -266,6 +282,37 @@ def create_workflow_run(request: WorkflowRunCreateRequest) -> WorkflowRunSummary
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return record_to_summary(record)
+
+
+@app.get("/files/tree", response_model=FileTreeResponse)
+def get_file_tree(repo_root: str) -> FileTreeResponse:
+    try:
+        return FileTreeResponse(**file_browser.tree(repo_root))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.get("/files/read", response_model=FileReadResponse)
+def read_file(repo_root: str, path: str) -> FileReadResponse:
+    try:
+        result = file_browser.read(repo_root, path)
+    except PermissionError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except IsADirectoryError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return FileReadResponse(**asdict(result))
+
+
+@app.get("/files/info", response_model=FileInfoResponse)
+def get_file_info(repo_root: str, path: str) -> FileInfoResponse:
+    try:
+        return FileInfoResponse(**file_browser.info(repo_root, path))
+    except PermissionError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @app.get("/settings/opencode", response_model=OpenCodeSettingsResponse)

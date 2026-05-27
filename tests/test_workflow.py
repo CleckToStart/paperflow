@@ -258,6 +258,55 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(routing.status_code, 200)
         self.assertEqual(routing.json()["writing"]["provider_id"], "writer")
 
+    def test_file_tree_and_read_endpoints(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "src").mkdir()
+            (root / "node_modules").mkdir()
+            (root / "src" / "main.py").write_text("print('hello')\n", encoding="utf-8")
+            (root / "node_modules" / "hidden.js").write_text("hidden", encoding="utf-8")
+
+            client = TestClient(app)
+            tree = client.get("/files/tree", params={"repo_root": str(root)})
+            self.assertEqual(tree.status_code, 200)
+            names = json.dumps(tree.json(), ensure_ascii=False)
+            self.assertIn("main.py", names)
+            self.assertNotIn("hidden.js", names)
+
+            read = client.get("/files/read", params={"repo_root": str(root), "path": "src/main.py"})
+            self.assertEqual(read.status_code, 200)
+            self.assertTrue(read.json()["readable"])
+            self.assertIn("print", read.json()["content"])
+
+    def test_file_read_rejects_escape_and_binary(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            outside = root.parent / "outside.txt"
+            outside.write_text("outside", encoding="utf-8")
+            binary = root / "sample.bin"
+            binary.write_bytes(b"\x00\x01\x02")
+
+            client = TestClient(app)
+            escape = client.get("/files/read", params={"repo_root": str(root), "path": "../outside.txt"})
+            self.assertEqual(escape.status_code, 400)
+
+            binary_response = client.get("/files/read", params={"repo_root": str(root), "path": "sample.bin"})
+            self.assertEqual(binary_response.status_code, 200)
+            self.assertFalse(binary_response.json()["readable"])
+            self.assertEqual(binary_response.json()["reason"], "binary")
+
+    def test_file_read_rejects_large_file(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            large = root / "large.txt"
+            large.write_text("x" * (1024 * 1024 + 1), encoding="utf-8")
+
+            client = TestClient(app)
+            response = client.get("/files/read", params={"repo_root": str(root), "path": "large.txt"})
+            self.assertEqual(response.status_code, 200)
+            self.assertFalse(response.json()["readable"])
+            self.assertEqual(response.json()["reason"], "too_large")
+
 
 if __name__ == "__main__":
     unittest.main()

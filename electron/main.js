@@ -85,12 +85,34 @@ function disposeTerminal(terminalSessionId) {
 }
 
 function shellExecutable() {
-  return process.env.COMSPEC || "powershell.exe";
+  return process.env.COMSPEC || "cmd.exe";
+}
+
+function quoteCmdArg(value) {
+  if (!value) {
+    return "\"\"";
+  }
+  if (!/[ \t"&|<>^]/.test(value)) {
+    return value;
+  }
+  return `"${value.replace(/"/g, '\\"')}"`;
 }
 
 async function registerHandlers() {
   ipcMain.handle("paperflow:health", async () => fetchJson(`${BACKEND_URL}/health`));
   ipcMain.handle("paperflow:listRepos", async () => fetchJson(`${BACKEND_URL}/repos`));
+  ipcMain.handle("paperflow:getFileTree", async (_event, repoRoot) => {
+    const query = new URLSearchParams({ repo_root: repoRoot });
+    return fetchJson(`${BACKEND_URL}/files/tree?${query.toString()}`);
+  });
+  ipcMain.handle("paperflow:readFile", async (_event, payload) => {
+    const query = new URLSearchParams({ repo_root: payload.repoRoot, path: payload.path });
+    return fetchJson(`${BACKEND_URL}/files/read?${query.toString()}`);
+  });
+  ipcMain.handle("paperflow:getFileInfo", async (_event, payload) => {
+    const query = new URLSearchParams({ repo_root: payload.repoRoot, path: payload.path });
+    return fetchJson(`${BACKEND_URL}/files/info?${query.toString()}`);
+  });
   ipcMain.handle("paperflow:getOpenCodeSettings", async () => fetchJson(`${BACKEND_URL}/settings/opencode`));
   ipcMain.handle("paperflow:updateOpenCodeSettings", async (_event, payload) =>
     fetchJson(`${BACKEND_URL}/settings/opencode`, {
@@ -145,7 +167,7 @@ async function registerHandlers() {
     const executable = shellExecutable();
     const args = ["/k"];
     if (record.command.length > 0) {
-      args.push(record.command.join(" "));
+      args.push(record.command.map(quoteCmdArg).join(" "));
     }
     const terminal = pty.spawn(executable, args, {
       name: "xterm-color",
@@ -186,6 +208,10 @@ async function registerHandlers() {
     return true;
   });
   ipcMain.handle("paperflow:openPath", async (_event, targetPath) => shell.openPath(targetPath));
+  ipcMain.handle("paperflow:showItemInFolder", async (_event, targetPath) => {
+    shell.showItemInFolder(targetPath);
+    return true;
+  });
 }
 
 app.whenReady().then(async () => {

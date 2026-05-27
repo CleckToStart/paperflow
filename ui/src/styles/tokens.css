@@ -1,0 +1,56 @@
+:root {
+  --bg-app: #f6f7f9;
+  --bg-panel: #ffffff;
+  --bg-soft: #f9fafb;
+  --bg-hover: #f1f5f9;
+  --bg-selected: #eaf2ff;
+  --border: #e5e7eb;
+  --border-strong: #d1d5db;
+  --text: #111827;
+  --text-muted: #6b7280;
+  --text-soft: #9ca3af;
+  --blue: #2563eb;
+  --blue-soft: #dbeafe;
+  --green: #15803d;
+  --green-soft: #dcfce7;
+  --red: #dc2626;
+  --red-soft: #fee2e2;
+  --amber: #b45309;
+  --amber-soft: #fef3c7;
+  --radius-panel: 16px;
+  --radius-group: 14px;
+  --radius-control: 10px;
+  --shadow-soft: 0 18px 50px rgba(15, 23, 42, 0.08);
+  --transition-fast: 120ms ease;
+  --transition-page: 160ms ease-out;
+  color: var(--text);
+  background: var(--bg-app);
+  font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg-app);
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
