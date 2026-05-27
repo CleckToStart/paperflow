@@ -91,6 +91,30 @@ function shellExecutable() {
 async function registerHandlers() {
   ipcMain.handle("paperflow:health", async () => fetchJson(`${BACKEND_URL}/health`));
   ipcMain.handle("paperflow:listRepos", async () => fetchJson(`${BACKEND_URL}/repos`));
+  ipcMain.handle("paperflow:getOpenCodeSettings", async () => fetchJson(`${BACKEND_URL}/settings/opencode`));
+  ipcMain.handle("paperflow:updateOpenCodeSettings", async (_event, payload) =>
+    fetchJson(`${BACKEND_URL}/settings/opencode`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  );
+  ipcMain.handle("paperflow:getProvidersSettings", async () => fetchJson(`${BACKEND_URL}/settings/providers`));
+  ipcMain.handle("paperflow:updateProvidersSettings", async (_event, payload) =>
+    fetchJson(`${BACKEND_URL}/settings/providers`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  );
+  ipcMain.handle("paperflow:getTaskRouting", async () => fetchJson(`${BACKEND_URL}/settings/routing`));
+  ipcMain.handle("paperflow:updateTaskRouting", async (_event, payload) =>
+    fetchJson(`${BACKEND_URL}/settings/routing`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  );
   ipcMain.handle("paperflow:startWorkflowRun", async (_event, payload) =>
     fetchJson(`${BACKEND_URL}/workflow-runs`, {
       method: "POST",

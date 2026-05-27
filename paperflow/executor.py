@@ -10,6 +10,7 @@ import yaml
 from paperflow.agents.opencode_runner import OpenCodeRunner
 from paperflow.agents.openai_runner import OpenAIRunner
 from paperflow.models import StepResult, now_iso
+from paperflow.settings import OpenCodeLocator, SettingsManager
 from paperflow.state import RepoRegistry, SessionRegistry
 from paperflow.workflow import WorkflowContext, resolve_step_scope
 
@@ -17,10 +18,19 @@ EventCallback = Callable[[str, str, str | None, dict[str, Any] | None], None]
 
 
 class WorkflowExecutor:
-    def __init__(self, root: Path, repo_registry: RepoRegistry, session_registry: SessionRegistry) -> None:
+    def __init__(
+        self,
+        root: Path,
+        repo_registry: RepoRegistry,
+        session_registry: SessionRegistry,
+        settings_manager: SettingsManager,
+        opencode_locator: OpenCodeLocator,
+    ) -> None:
         self.root = root
         self.repo_registry = repo_registry
         self.session_registry = session_registry
+        self.settings_manager = settings_manager
+        self.opencode_locator = opencode_locator
 
     def load_workflow(self, path: Path) -> dict[str, Any]:
         return yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -143,7 +153,14 @@ class WorkflowExecutor:
     ):
         runner_name = step["runner"]
         if runner_name == "opencode":
-            opencode_config = config.get("opencode", {})
+            opencode_config = {**config.get("opencode", {})}
+            discovery = self.opencode_locator.discover()
+            executable_path = discovery["selected_path"]
+            if not executable_path:
+                raise RuntimeError(
+                    "OpenCode executable is not configured or discoverable. Update /settings/opencode first."
+                )
+            opencode_config["command"] = executable_path
             return OpenCodeRunner(
                 root=root,
                 config=opencode_config,
@@ -153,7 +170,7 @@ class WorkflowExecutor:
             )
         if runner_name == "openai":
             openai_config = config.get("openai", {})
-            return OpenAIRunner(root=root, config=openai_config)
+            return OpenAIRunner(root=root, config=openai_config, settings_manager=self.settings_manager, step=step)
         raise ValueError(f"Unsupported runner: {runner_name}")
 
     def ensure_parent(self, path: Path) -> None:

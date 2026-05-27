@@ -9,6 +9,7 @@ class HealthResponse(BaseModel):
     status: str
     backend_root: str
     state_root: str
+    opencode_selected_path: str = ""
 
 
 class RepoInfo(BaseModel):
@@ -96,3 +97,60 @@ class TerminalSessionRecordResponse(BaseModel):
     created_at: str
     suggested_session_id: str | None = None
     attach_url: str | None = None
+
+
+class OpenCodeCandidateResponse(BaseModel):
+    path: str
+    source: str
+    exists: bool
+
+
+class OpenCodeSettingsResponse(BaseModel):
+    selected_path: str
+    configured_path: str
+    last_checked_at: str | None = None
+    candidates: list[OpenCodeCandidateResponse]
+
+
+class OpenCodeSettingsUpdateRequest(BaseModel):
+    executable_path: str
+
+
+class ProviderConfigRequest(BaseModel):
+    provider_id: str
+    label: str
+    base_url: str
+    api_key: str
+    default_model: str
+    small_model: str = ""
+    headers: dict[str, str] = Field(default_factory=dict)
+    enabled: bool = True
+
+
+class ProviderConfigResponse(ProviderConfigRequest):
+    pass
+
+
+class ProvidersSettingsResponse(BaseModel):
+    items: list[ProviderConfigResponse]
+
+
+class ProvidersSettingsUpdateRequest(BaseModel):
+    items: list[ProviderConfigRequest]
+
+
+class TaskRouteResponse(BaseModel):
+    provider_id: str = ""
+    model: str = ""
+
+
+class TaskRoutingResponse(BaseModel):
+    writing: TaskRouteResponse
+    review: TaskRouteResponse
+    summary: TaskRouteResponse
+
+
+class TaskRoutingUpdateRequest(BaseModel):
+    writing: TaskRouteResponse
+    review: TaskRouteResponse
+    summary: TaskRouteResponse

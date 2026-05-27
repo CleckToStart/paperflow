@@ -6,6 +6,7 @@ from pathlib import Path
 
 from paperflow.executor import WorkflowExecutor
 from paperflow.models import now_iso
+from paperflow.settings import OpenCodeLocator, SettingsManager
 from paperflow.state import RepoRegistry, SessionRegistry
 
 
@@ -25,7 +26,15 @@ def run_once(workflow_path: Path, repo_root: str | None, session_id: str | None,
     root = workflow_path.resolve().parent
     repo_registry = RepoRegistry(root / "state" / "repos.json", default_repo_root=root)
     session_registry = SessionRegistry(root / "state" / "sessions.json")
-    executor = WorkflowExecutor(root=root, repo_registry=repo_registry, session_registry=session_registry)
+    settings_manager = SettingsManager(root / "state" / "settings.json")
+    opencode_locator = OpenCodeLocator(settings_manager=settings_manager)
+    executor = WorkflowExecutor(
+        root=root,
+        repo_registry=repo_registry,
+        session_registry=session_registry,
+        settings_manager=settings_manager,
+        opencode_locator=opencode_locator,
+    )
 
     def emit(event_type: str, message: str, step_name: str | None = None, payload: dict | None = None) -> None:
         event = {

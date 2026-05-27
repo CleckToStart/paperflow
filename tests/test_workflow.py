@@ -9,7 +9,8 @@ from fastapi.testclient import TestClient
 from paperflow.agents.opencode_runner import OpenCodeRunner
 from paperflow.api_server import app
 from paperflow.models import SessionRecord, StepResult
-from paperflow.state import RepoRegistry, SessionRegistry
+from paperflow.settings import OpenCodeLocator, ProviderConfig, SettingsManager
+from paperflow.state import SessionRegistry
 from paperflow.workflow import WorkflowContext
 
 
@@ -142,6 +143,38 @@ class RegistryTests(unittest.TestCase):
             sessions = registry.list(repo_root="repo", workflow_name="flow")
             self.assertTrue(next(item for item in sessions if item.session_id == "b").preferred)
 
+    def test_settings_manager_and_locator(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            fake_binary = root / "opencode.exe"
+            fake_binary.write_text("", encoding="utf-8")
+            settings = SettingsManager(root / "settings.json")
+            settings.update_opencode_path(str(fake_binary))
+            settings.update_providers(
+                [
+                    ProviderConfig(
+                        provider_id="writer",
+                        label="Writer",
+                        base_url="https://example.com/v1",
+                        api_key="secret",
+                        default_model="writer-model",
+                    )
+                ]
+            )
+            settings.update_task_routing(
+                {
+                    "writing": {"provider_id": "writer", "model": ""},
+                    "review": {"provider_id": "", "model": ""},
+                    "summary": {"provider_id": "", "model": ""},
+                }
+            )
+            locator = OpenCodeLocator(settings_manager=settings)
+            discovery = locator.discover()
+            provider, model = settings.resolve_task_config("writing")
+            self.assertEqual(discovery["selected_path"], str(fake_binary.resolve()))
+            self.assertEqual(provider.provider_id, "writer")
+            self.assertEqual(model, "writer-model")
+
 
 class OrchestratorSmokeTests(unittest.TestCase):
     def test_main_persists_outputs(self):
@@ -187,6 +220,43 @@ class ApiTests(unittest.TestCase):
         repos = client.get("/repos")
         self.assertEqual(repos.status_code, 200)
         self.assertIn("items", repos.json())
+
+    def test_settings_endpoints(self):
+        client = TestClient(app)
+        opencode = client.get("/settings/opencode")
+        self.assertEqual(opencode.status_code, 200)
+        self.assertIn("candidates", opencode.json())
+
+        providers = client.put(
+            "/settings/providers",
+            json={
+                "items": [
+                    {
+                        "provider_id": "writer",
+                        "label": "Writer",
+                        "base_url": "https://example.com/v1",
+                        "api_key": "secret",
+                        "default_model": "writer-model",
+                        "small_model": "",
+                        "headers": {},
+                        "enabled": True,
+                    }
+                ]
+            },
+        )
+        self.assertEqual(providers.status_code, 200)
+        self.assertEqual(providers.json()["items"][0]["provider_id"], "writer")
+
+        routing = client.put(
+            "/settings/routing",
+            json={
+                "writing": {"provider_id": "writer", "model": ""},
+                "review": {"provider_id": "", "model": ""},
+                "summary": {"provider_id": "", "model": ""},
+            },
+        )
+        self.assertEqual(routing.status_code, 200)
+        self.assertEqual(routing.json()["writing"]["provider_id"], "writer")
 
 
 if __name__ == "__main__":

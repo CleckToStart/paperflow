@@ -4,13 +4,17 @@ from pathlib import Path
 from typing import Any
 
 from paperflow.models import StepResult
+from paperflow.settings import SettingsManager
 from paperflow.workflow import WorkflowContext
 
 
 class OpenAIRunner:
-    def __init__(self, root: Path, config: dict[str, Any]) -> None:
+    def __init__(self, root: Path, config: dict[str, Any], settings_manager: SettingsManager, step: dict[str, Any]) -> None:
         self.root = root
-        self.model = config.get("model", "gpt-4.1")
+        self.settings_manager = settings_manager
+        self.step = step
+        self.provider, routed_model = settings_manager.resolve_task_config(step.get("type", ""))
+        self.model = routed_model or config.get("model", "gpt-4.1")
         self.temperature = config.get("temperature", 0.2)
         self.system_prompt = config.get(
             "system_prompt",
@@ -22,7 +26,13 @@ class OpenAIRunner:
             raise RuntimeError(
                 "openai package is not installed. Run 'pip install -r requirements.txt' before using openai steps."
             ) from exc
-        self.client = OpenAI()
+        client_kwargs: dict[str, Any] = {}
+        if self.provider is not None:
+            client_kwargs["base_url"] = self.provider.base_url
+            client_kwargs["api_key"] = self.provider.api_key
+            if self.provider.headers:
+                client_kwargs["default_headers"] = self.provider.headers
+        self.client = OpenAI(**client_kwargs)
 
     def run(self, step: dict[str, Any], context: WorkflowContext, scope: dict[str, list[str]]) -> StepResult:
         del scope
@@ -53,6 +63,7 @@ class OpenAIRunner:
         metadata = {
             "status": "ok",
             "model": self.model,
+            "provider_id": self.provider.provider_id if self.provider is not None else "",
             "usage": getattr(response, "usage", None).model_dump() if getattr(response, "usage", None) else None,
         }
         return StepResult(prompt=prompt, raw_output=text, metadata=metadata)

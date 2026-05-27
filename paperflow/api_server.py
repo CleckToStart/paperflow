@@ -14,11 +14,20 @@ from sse_starlette.sse import EventSourceResponse
 
 from paperflow.api_models import (
     HealthResponse,
+    OpenCodeCandidateResponse,
+    OpenCodeSettingsResponse,
+    OpenCodeSettingsUpdateRequest,
+    ProviderConfigResponse,
+    ProvidersSettingsResponse,
+    ProvidersSettingsUpdateRequest,
     RepoInfo,
     RepoListResponse,
     SessionListResponse,
     SessionRecordResponse,
     SessionResumeResponse,
+    TaskRouteResponse,
+    TaskRoutingResponse,
+    TaskRoutingUpdateRequest,
     TerminalSessionCreateRequest,
     TerminalSessionRecordResponse,
     WorkflowRunCreateRequest,
@@ -28,6 +37,7 @@ from paperflow.api_models import (
 )
 from paperflow.executor import WorkflowExecutor
 from paperflow.models import TerminalSessionRecord, WorkflowRunEvent, WorkflowRunRecord, now_iso
+from paperflow.settings import OpenCodeLocator, ProviderConfig, SettingsManager
 from paperflow.state import RepoRegistry, SessionRegistry
 
 
@@ -155,7 +165,9 @@ class RunManager:
     def create_terminal_session(self, request: TerminalSessionCreateRequest) -> TerminalSessionRecord:
         repo_root = str(Path(request.repo_root).resolve())
         shell = "powershell.exe"
-        command = request.command or ["opencode"]
+        selected_path = self.executor.opencode_locator.discover()["selected_path"]
+        default_command = [selected_path] if selected_path else ["opencode"]
+        command = request.command or default_command
         if "--dir" not in command:
             command = [*command, "--dir", repo_root]
         if request.attach_url and "--attach" not in command:
@@ -180,7 +192,15 @@ ROOT = Path(__file__).resolve().parent.parent
 STATE_ROOT = ROOT / "state"
 repo_registry = RepoRegistry(STATE_ROOT / "repos.json", default_repo_root=ROOT)
 session_registry = SessionRegistry(STATE_ROOT / "sessions.json")
-executor = WorkflowExecutor(root=ROOT, repo_registry=repo_registry, session_registry=session_registry)
+settings_manager = SettingsManager(STATE_ROOT / "settings.json")
+opencode_locator = OpenCodeLocator(settings_manager=settings_manager)
+executor = WorkflowExecutor(
+    root=ROOT,
+    repo_registry=repo_registry,
+    session_registry=session_registry,
+    settings_manager=settings_manager,
+    opencode_locator=opencode_locator,
+)
 run_manager = RunManager(root=ROOT, executor=executor)
 app = FastAPI(title="paperflow API", version="0.1.0")
 
@@ -213,7 +233,13 @@ def record_to_detail(record: WorkflowRunRecord) -> WorkflowRunDetail:
 
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
-    return HealthResponse(status="ok", backend_root=str(ROOT), state_root=str(STATE_ROOT))
+    discovery = opencode_locator.discover()
+    return HealthResponse(
+        status="ok",
+        backend_root=str(ROOT),
+        state_root=str(STATE_ROOT),
+        opencode_selected_path=discovery["selected_path"],
+    )
 
 
 @app.get("/repos", response_model=RepoListResponse)
@@ -240,6 +266,56 @@ def create_workflow_run(request: WorkflowRunCreateRequest) -> WorkflowRunSummary
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return record_to_summary(record)
+
+
+@app.get("/settings/opencode", response_model=OpenCodeSettingsResponse)
+def get_opencode_settings() -> OpenCodeSettingsResponse:
+    discovery = opencode_locator.discover()
+    settings = settings_manager.load()
+    if discovery["selected_path"] and discovery["selected_path"] != settings.opencode_executable_path:
+        settings.opencode_last_checked_at = discovery["last_checked_at"]
+        settings_manager.save(settings)
+    return OpenCodeSettingsResponse(
+        selected_path=discovery["selected_path"],
+        configured_path=discovery["configured_path"],
+        last_checked_at=discovery["last_checked_at"],
+        candidates=[OpenCodeCandidateResponse(**item) for item in discovery["candidates"]],
+    )
+
+
+@app.put("/settings/opencode", response_model=OpenCodeSettingsResponse)
+def update_opencode_settings(request: OpenCodeSettingsUpdateRequest) -> OpenCodeSettingsResponse:
+    settings_manager.update_opencode_path(request.executable_path)
+    return get_opencode_settings()
+
+
+@app.get("/settings/providers", response_model=ProvidersSettingsResponse)
+def get_provider_settings() -> ProvidersSettingsResponse:
+    settings = settings_manager.load()
+    return ProvidersSettingsResponse(items=[ProviderConfigResponse(**asdict(item)) for item in settings.providers])
+
+
+@app.put("/settings/providers", response_model=ProvidersSettingsResponse)
+def update_provider_settings(request: ProvidersSettingsUpdateRequest) -> ProvidersSettingsResponse:
+    providers = [ProviderConfig(**item.model_dump()) for item in request.items]
+    settings_manager.update_providers(providers)
+    return get_provider_settings()
+
+
+@app.get("/settings/routing", response_model=TaskRoutingResponse)
+def get_task_routing() -> TaskRoutingResponse:
+    settings = settings_manager.load()
+    return TaskRoutingResponse(
+        writing=TaskRouteResponse(**settings.task_routing["writing"]),
+        review=TaskRouteResponse(**settings.task_routing["review"]),
+        summary=TaskRouteResponse(**settings.task_routing["summary"]),
+    )
+
+
+@app.put("/settings/routing", response_model=TaskRoutingResponse)
+def update_task_routing(request: TaskRoutingUpdateRequest) -> TaskRoutingResponse:
+    settings_manager.update_task_routing(request.model_dump())
+    return get_task_routing()
 
 
 @app.get("/workflow-runs/{run_id}", response_model=WorkflowRunDetail)
